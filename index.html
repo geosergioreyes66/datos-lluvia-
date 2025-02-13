@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Lluvia</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4682B4;
+            --secondary-color: #45a049;
+            --background-color: #f5f5f5;
+            --card-background: white;
+            --text-color: #333;
+            --border-color: #ddd;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: var(--card-background);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: var(--primary-color);
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .filters {
+            background-color: var(--card-background);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .filter-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-item label {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        select {
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1em;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: var(--secondary-color);
+        }
+
+        .chart-container {
+            background-color: var(--card-background);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #grafico {
+            width: 100%;
+            height: 500px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background-color: var(--card-background);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Monitor de Lluvia</h1>
+            <p>Sistema de Monitoreo Pluviométrico en Tiempo Real</p>
+        </div>
+
+        <div class="filters">
+            <div class="filter-grid">
+                <div class="filter-item">
+                    <label for="yearFilter">Año:</label>
+                    <select id="yearFilter" onchange="actualizarMeses()">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label for="monthFilter">Mes:</label>
+                    <select id="monthFilter" onchange="actualizarDias()">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label for="dayFilter">Día:</label>
+                    <select id="dayFilter">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="aplicarFiltros()">Aplicar Filtros</button>
+        </div>
+
+        <div class="chart-container">
+            <div id="grafico"></div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Lluvia Total</h3>
+                <div id="totalLluvia" class="stat-value">0.00 mm</div>
+            </div>
+            <div class="stat-card">
+                <h3>Promedio Diario</h3>
+                <div id="promedioDiario" class="stat-value">0.00 mm</div>
+            </div>
+            <div class="stat-card">
+                <h3>Última Medición</h3>
+                <div id="ultimaActualizacion" class="stat-value">-</div>
+            </div>
+        </div>
+
+        <!-- Tabla de datos -->
+        <div class="data-container bg-white rounded-lg shadow-md p-6 mt-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Datos Detallados</h2>
+                <button onclick="descargarCSV()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+                    Descargar CSV
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full table-auto">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="px-4 py-2 text-left">Fecha</th>
+                            <th class="px-4 py-2 text-left">Hora</th>
+                            <th class="px-4 py-2 text-right">Pulsos</th>
+                            <th class="px-4 py-2 text-right">Lluvia Intervalo (mm)</th>
+                            <th class="px-4 py-2 text-right">Lluvia Acumulada (mm)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaBody">
+                        <!-- Los datos se llenarán dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let datosGlobales = [];
+
+        // Cargar datos cuando la página se inicie
+        window.onload = function() {
+            cargarDatos();
+        };
+
+        async function cargarDatos() {
+            try {
+                const response = await fetch('data/lluvia.csv');
+                const text = await response.text();
+                
+                Papa.parse(text, {
+                    header: true,
+                    dynamicTyping: true,
+                    complete: function(results) {
+                        datosGlobales = results.data.filter(row => row.Fecha && row['Lluvia Intervalo (mm)']);
+                        inicializarFiltros();
+                        aplicarFiltros();
+                    }
+                });
+            } catch (error) {
+                console.error('Error cargando datos:', error);
+            }
+        }
+
+        function inicializarFiltros() {
+            const years = [...new Set(datosGlobales.map(d => d.Fecha.split('-')[0]))].sort();
+            const yearSelect = document.getElementById('yearFilter');
+            yearSelect.innerHTML = '<option value="">Todos</option>' +
+                years.map(year => `<option value="${year}">${year}</option>`).join('');
+            
+            actualizarMeses();
+        }
+
+        function actualizarMeses() {
+            const yearFilter = document.getElementById('yearFilter').value;
+            const monthSelect = document.getElementById('monthFilter');
+            
+            const monthNames = {
+                '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
+                '05': 'Mayo', '06': 'Junio', '07': 'Julio', '08': 'Agosto',
+                '09': 'Septiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre'
+            };
+
+            let months = yearFilter ? 
+                [...new Set(datosGlobales
+                    .filter(d => d.Fecha.startsWith(yearFilter))
+                    .map(d => d.Fecha.split('-')[1])
+                )].sort() :
+                Object.keys(monthNames);
+
+            monthSelect.innerHTML = '<option value="">Todos</option>' +
+                months.map(m => `<option value="${m}">${monthNames[m]}</option>`).join('');
+            
+            actualizarDias();
+        }
+
+        function actualizarDias() {
+            const yearFilter = document.getElementById('yearFilter').value;
+            const monthFilter = document.getElementById('monthFilter').value;
+            const daySelect = document.getElementById('dayFilter');
+            
+            if (yearFilter && monthFilter) {
+                const daysInMonth = new Date(yearFilter, monthFilter, 0).getDate();
+                daySelect.innerHTML = '<option value="">Todos</option>' +
+                    Array.from({length: daysInMonth}, (_, i) => i + 1)
+                        .map(d => `<option value="${String(d).padStart(2, '0')}">${d}</option>`)
+                        .join('');
+            } else {
+                daySelect.innerHTML = '<option value="">Todos</option>';
+            }
+        }
+
+        function aplicarFiltros() {
+            const yearFilter = document.getElementById('yearFilter').value;
+            const monthFilter = document.getElementById('monthFilter').value;
+            const dayFilter = document.getElementById('dayFilter').value;
+
+            // Filtrar datos
+            let datosFiltrados = datosGlobales.filter(row => {
+                const [year, month, day] = row.Fecha.split('-');
+                return (!yearFilter || year === yearFilter) &&
+                       (!monthFilter || month === monthFilter) &&
+                       (!dayFilter || day === dayFilter);
+            });
+
+            // Agrupar datos por fecha para la gráfica
+            const datosAgrupados = {};
+            datosFiltrados.forEach(row => {
+                if (!datosAgrupados[row.Fecha]) {
+                    datosAgrupados[row.Fecha] = 0;
+                }
+                datosAgrupados[row.Fecha] += row['Lluvia Intervalo (mm)'];
+            });
+
+            // Preparar datos para la gráfica
+            const fechas = Object.keys(datosAgrupados).sort();
+            const valores = fechas.map(f => datosAgrupados[f]);
+
+            // Crear gráfica
+            const trace = {
+                x: fechas,
+                y: valores,
+                type: 'bar',
+                name: 'Lluvia Diaria',
+                marker: {
+                    color: '#4682B4'
+                }
+            };
+
+            const layout = {
+                title: 'Precipitación Diaria (mm)',
+                xaxis: {
+                    title: 'Fecha',
+                    tickangle: -45
+                },
+                yaxis: {
+                    title: 'Lluvia (mm)'
+                },
+                bargap: 0.05,
+                bargroupgap: 0.2,
+                paper_bgcolor: 'white',
+                plot_bgcolor: 'white'
+            };
+
+            Plotly.newPlot('grafico', [trace], layout);
+
+            // Actualizar estadísticas
+            const totalLluvia = valores.reduce((a, b) => a + b, 0);
+            const promedioDiario = totalLluvia / fechas.length || 0;
+            
+            document.getElementById('totalLluvia').textContent = `${totalLluvia.toFixed(2)} mm`;
+            document.getElementById('promedioDiario').textContent = `${promedioDiario.toFixed(2)} mm`;
+            
+            const ultimaFecha = fechas[fechas.length - 1] || '-';
+            document.getElementById('ultimaActualizacion').textContent = ultimaFecha;
+
+            // Actualizar la tabla con los datos filtrados
+            actualizarTabla(datosFiltrados);
+        }
+    </script>
+</body>
+</html>
