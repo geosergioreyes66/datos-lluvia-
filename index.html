@@ -196,6 +196,32 @@
                 <div id="ultimaActualizacion" class="stat-value">-</div>
             </div>
         </div>
+
+        <!-- Tabla de datos -->
+        <div class="data-container bg-white rounded-lg shadow-md p-6 mt-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Datos Detallados</h2>
+                <button onclick="descargarCSV()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+                    Descargar CSV
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full table-auto">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="px-4 py-2 text-left">Fecha</th>
+                            <th class="px-4 py-2 text-left">Hora</th>
+                            <th class="px-4 py-2 text-right">Pulsos</th>
+                            <th class="px-4 py-2 text-right">Lluvia Intervalo (mm)</th>
+                            <th class="px-4 py-2 text-right">Lluvia Acumulada (mm)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaBody">
+                        <!-- Los datos se llenarán dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -336,6 +362,9 @@
             
             const ultimaFecha = fechas[fechas.length - 1] || '-';
             document.getElementById('ultimaActualizacion').textContent = ultimaFecha;
+
+            // Actualizar la tabla con los datos filtrados
+            actualizarTabla(datosFiltrados);
         }
     </script>
 </body>
